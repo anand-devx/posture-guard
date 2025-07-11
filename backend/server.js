@@ -16,7 +16,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+
 
 // Middleware
 app.use(cors());
@@ -44,5 +44,5 @@ app.use(errorHandler);
 
 // Start
 app.listen(PORT, () => {
-  console.log(`🚀 PostureGuard AI Backend running at http://localhost:${PORT}`);
+  console.log(`🚀 PostureGuard AI Backend running...`);
 });

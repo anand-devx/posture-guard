@@ -23,6 +23,7 @@ interface AnalysisResult {
 }
 
 function App() {
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -158,7 +159,7 @@ function App() {
     formData.append('postureType', postureType);
 
     try {
-      const response = await fetch('http://localhost:3001/api/analyze', {
+      const response = await fetch('https://posture-guard.onrender.com/api/analyze', {
         method: 'POST',
         body: formData,
       });
@@ -258,7 +259,22 @@ function App() {
     <video id="my-player" controls></video>
   );
 }
+const BACKEND_URL = 'https://posture-guard.onrender.com/';
 
+async function pingBackend() {
+  try {
+    await fetch(BACKEND_URL);
+    console.log('Backend pinged.');
+  } catch (err) {
+    console.error('Backend ping failed:', err);
+  }
+}
+
+// On load
+pingBackend();
+
+// Every 14 min (14 * 60 * 1000 ms)
+setInterval(pingBackend, 14 * 60 * 1000);
 return (
     <div className={`min-h-screen transition-colors duration-500 ${darkMode ? 'bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460]' : 'bg-gradient-to-br from-blue-50 via-white to-purple-50'}`}>
       {/* Header */}
@@ -613,7 +629,7 @@ return (
                       <p className={`font-bold ${darkMode ? 'text-pink-200' : 'text-red-800'}`}>❌ Analysis Failed</p>
                       <p className={`text-md ${darkMode ? 'text-pink-100' : 'text-red-600'}`}>{analysisResult.message}</p>
                       <p className={`text-xs mt-2 ${darkMode ? 'text-yellow-200' : 'text-red-500'}`}>
-                        Make sure the backend server is running on port 3001
+                        Backend Error
                       </p>
                     </div>
                   )}
