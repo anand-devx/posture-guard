@@ -16,7 +16,7 @@ COPY backend/requirements.txt .
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
 # Copy all backend code
-COPY /.
+COPY / .
 
 # If you have Node/Express too, install Node
 # FROM node:20-alpine AS node
