@@ -43,6 +43,7 @@ app.get('/', (req, res) => {
 app.use(errorHandler);
 
 // Start
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`🚀 PostureGuard AI Backend running...`);
 });
