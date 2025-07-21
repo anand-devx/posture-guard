@@ -171,7 +171,7 @@ function App() {
     formData.append('postureType', postureType);
     const localhost = 'http://localhost:3001/api/analyze'
     const live_server = 'https://posture-guard.onrender.com/api/analyze'
-    const server_url = localhost; // Change this to localhost if testing locally
+    const server_url = live_server; // Change this to localhost if testing locally
     try {
       const response = await fetch(server_url, {
         method: 'POST',
