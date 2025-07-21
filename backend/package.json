@@ -1,7 +1,7 @@
 {
   "name": "postureguard-ai-backend",
   "version": "1.0.0",
-  "description": "PostureGuard AI Backend Server",
+  "description": "Posture Guard Backend Server",
   "main": "server.js",
   "type": "module",
   "scripts": {

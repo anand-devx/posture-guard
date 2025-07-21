@@ -1,4 +1,4 @@
-# PostureGuard AI - Real-time Posture Detection System
+# Posture Guard - Real-time Posture Detection System
 
 A modern web application that uses AI-powered pose detection to analyze and provide feedback on posture during squats and desk sitting. Built with React, Node.js, and MediaPipe.
 
@@ -223,8 +223,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-For support, email support@postureguard.ai or join our Discord community.
+For support, email anandyadav11206@gmail.com or join our Discord community.
 
 ---
 
-**Made with ❤️ by the PostureGuard AI Team**
+**Made with ❤️ by the Posture Guard Team**

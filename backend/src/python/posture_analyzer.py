@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PostureGuard AI - Posture Analysis System
+Posture Guard - Posture Analysis System
 Uses MediaPipe and OpenCV for real-time posture detection with facing direction
 """
 
@@ -55,6 +55,8 @@ class PostureAnalyzer:
                     landmarks[pose.PoseLandmark.LEFT_KNEE.value].y]
             ankle = [landmarks[pose.PoseLandmark.LEFT_ANKLE.value].x,
                      landmarks[pose.PoseLandmark.LEFT_ANKLE.value].y]
+            toe = [landmarks[pose.PoseLandmark.LEFT_FOOT_INDEX.value].x,
+                     landmarks[pose.PoseLandmark.LEFT_FOOT_INDEX.value].y]
             shoulder = [landmarks[pose.PoseLandmark.LEFT_SHOULDER.value].x,
                         landmarks[pose.PoseLandmark.LEFT_SHOULDER.value].y]
         else:
@@ -64,6 +66,8 @@ class PostureAnalyzer:
                     landmarks[pose.PoseLandmark.RIGHT_KNEE.value].y]
             ankle = [landmarks[pose.PoseLandmark.RIGHT_ANKLE.value].x,
                      landmarks[pose.PoseLandmark.RIGHT_ANKLE.value].y]
+            toe = [landmarks[pose.PoseLandmark.RIGHT_FOOT_INDEX.value].x,
+                     landmarks[pose.PoseLandmark.RIGHT_FOOT_INDEX.value].y]
             shoulder = [landmarks[pose.PoseLandmark.RIGHT_SHOULDER.value].x,
                         landmarks[pose.PoseLandmark.RIGHT_SHOULDER.value].y]
 
@@ -73,7 +77,7 @@ class PostureAnalyzer:
         warnings = []
         is_good_posture = True
 
-        if (facing == "left" and knee[0] > ankle[0]) or (facing == "right" and knee[0] < ankle[0]):
+        if (facing == "right" and knee[0] > toe[0]) or (facing == "left" and knee[0] < toe[0]):
             warnings.append("Knee extends beyond toe - risk of injury")
             is_good_posture = False
 

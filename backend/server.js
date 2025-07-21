@@ -38,7 +38,7 @@ app.get('/api/health', (req, res) => {
 
 // Root
 app.get('/', (req, res) => {
-  res.json({ message: 'PostureGuard AI Backend Server' });
+  res.json({ message: 'Posture Guard Backend Server' });
 });
 
 // Error Handler
@@ -47,5 +47,5 @@ app.use(errorHandler);
 // Start
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`🚀 PostureGuard AI Backend running on PORT ${PORT}...`);
+  console.log(`🚀 Posture Guard Backend running on PORT ${PORT}...`);
 });

@@ -1,5 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Camera, Play, Pause, AlertCircle, CheckCircle, Download, Home, Info, Image } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Upload, Camera, Play, AlertCircle, CheckCircle, Image, Info,
+  AlignVerticalJustifyEnd, Sun, Moon, Sparkles, Zap, Target,
+  Activity, TrendingUp, Shield, ChevronRight, Eye, BarChart3,
+  HeartPulse, Monitor, Dumbbell, Maximize2, X, Users
+} from 'lucide-react';
+import Logo  from './assets/logo3.svg';
 
 interface PostureAnalysis {
   timestamp: number;
@@ -23,7 +30,6 @@ interface AnalysisResult {
 }
 
 function App() {
-
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -33,6 +39,8 @@ function App() {
   const [postureType, setPostureType] = useState<'squat' | 'sitting'>('squat');
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [fileType, setFileType] = useState<'video' | 'image' | null>(null);
+  const [dragActive, setDragActive] = useState(false);
+  const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem('pgai-dark') === 'true';
   });
@@ -56,14 +64,10 @@ function App() {
     if (file && (file.type.startsWith('video/') || file.type.startsWith('image/'))) {
       setSelectedFile(file);
       
-      // Create preview URL
       const url = URL.createObjectURL(file);
       setPreviewUrl(url);
-      
-      // Set file type
       setFileType(file.type.startsWith('video/') ? 'video' : 'image');
       
-      // Clear previous results
       setAnalysisResult(null);
       setCurrentFeedback(null);
     }
@@ -71,10 +75,16 @@ function App() {
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
+    setDragActive(true);
+  };
+
+  const handleDragLeave = () => {
+    setDragActive(false);
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    setDragActive(false);
     const files = e.dataTransfer.files;
     if (files.length > 0) {
       handleFileSelect(files[0]);
@@ -126,21 +136,21 @@ function App() {
         canvas.height = video.videoHeight;
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         
-        // Convert canvas to blob and create file
         canvas.toBlob((blob) => {
           if (blob) {
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
             const file = new File([blob], `webcam-capture-${timestamp}.jpg`, { type: 'image/jpeg' });
             setSelectedFile(file);
             
-            // Create preview URL
             const url = URL.createObjectURL(file);
             setPreviewUrl(url);
             setFileType('image');
             
-            // Clear previous results
             setAnalysisResult(null);
             setCurrentFeedback(null);
+            
+            // Keep webcam active after capture
+            // Don't stop the webcam here
           }
         }, 'image/jpeg', 0.9);
       }
@@ -159,18 +169,18 @@ function App() {
     formData.append('postureType', postureType);
 
     try {
-      const response = await fetch('https://posture-guard.onrender.com/api/analyze', {
+      const response = await fetch('http://localhost:3001/api/analyze', {
         method: 'POST',
         body: formData,
       });
-      console.log(response)
+      
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const result: AnalysisResult = await response.json();
       setAnalysisResult(result);
-      console.log(result.processedUrl)
+      
       if (result.success && result.analysis && result.analysis.length > 0) {
         setCurrentFeedback(result.analysis[0]);
       }
@@ -178,7 +188,7 @@ function App() {
       console.error('Error analyzing posture:', error);
       setAnalysisResult({
         success: false,
-        message: 'Failed to analyze posture. Please ensure the backend server is running and try again.',
+        message: 'Failed to analyze posture. Please try again later or try another file.',
         analysis: []
       });
     } finally {
@@ -186,48 +196,6 @@ function App() {
     }
   };
 
-  const uploadFile = async () => {
-    if (!selectedFile) return;
-
-    setIsUploading(true);
-    const formData = new FormData();
-    formData.append('file', selectedFile);
-
-    try {
-      const response = await fetch('http://localhost:3001/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      if (result.success) {
-        console.log('File uploaded successfully:', result.url);
-        alert('File uploaded successfully!');
-      }
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      alert('Failed to upload file. Please ensure the backend server is running and try again.');
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const downloadProcessedFile = () => {
-    if (analysisResult?.processedVideoUrl) {
-      const link = document.createElement('a');
-      link.href = analysisResult.processedVideoUrl;
-      link.download = `processed-${selectedFile?.name || 'file'}`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
-  };
-
-  // Cleanup URLs on unmount
   useEffect(() => {
     return () => {
       if (previewUrl) {
@@ -239,133 +207,480 @@ function App() {
     };
   }, [previewUrl]);
 
-
- function CloudinaryPlayer({ publicId }) {
-  useEffect(() => {
-    if (window.cloudinary) {
-      const cld = window.cloudinary.Cloudinary.new({ cloud_name: 'dq7qoyrvn' });
-
-      const player = cld.videoPlayer('my-player', {
-        controls: true,
-        autoplay: false,
-        fluid: true,
-      });
-
-      player.source(publicId);
+  // Animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        duration: 0.6,
+        staggerChildren: 0.1
+      }
     }
-  }, [publicId]);
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.5, ease: "easeOut" }
+    }
+  };
+
+  const cardVariants = {
+    hidden: { opacity: 0, scale: 0.95 },
+    visible: {
+      opacity: 1,
+      scale: 1,
+      transition: { duration: 0.4, ease: "easeOut" }
+    }
+  };
+
+  const buttonVariants = {
+    hover: { scale: 1.05, transition: { duration: 0.2 } },
+    tap: { scale: 0.95 }
+  };
+
+  const pulseVariants = {
+    pulse: {
+      scale: [1, 1.05, 1],
+      transition: {
+        duration: 2,
+        repeat: Infinity,
+        ease: "easeInOut"
+      }
+    }
+  };
 
   return (
-    <video id="my-player" controls></video>
-  );
-}
-const BACKEND_URL = 'https://posture-guard.onrender.com/';
+    <div className="min-h-screen relative overflow-hidden">
+      {/* Animated Background - Made more spontaneous and faster */}
+      <div className="fixed inset-0 -z-10">
+        <div className={`absolute inset-0 transition-all duration-700 ${
+          darkMode 
+            ? 'bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900' 
+            : 'bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50'
+        }`} />
+        
+        {/* Faster animated gradient orbs */}
+        <motion.div
+          className={`absolute -top-40 -right-40 w-96 h-96 rounded-full opacity-80 blur-3xl ${
+            darkMode ? 'bg-gradient-to-r from-purple-600 to-pink-600' : 'bg-gradient-to-r from-blue-400/70 to-purple-400/70'
+          }`}
+          animate={{
+            scale: [1, 1.3, 0.8, 1.2, 1],
+            rotate: [0, 90, 180, 270, 360],
+            x: [-10, 20, -15, 25, -10],
+            y: [-15, 25, -20, 15, -15]
+          }}
+          transition={{
+            duration: 8,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+        
+        <motion.div
+          className={`absolute -bottom-40 -left-40 w-96 h-96 rounded-full opacity-80 blur-3xl ${
+            darkMode ? 'bg-gradient-to-r from-indigo-600 to-cyan-600' : 'bg-gradient-to-r from-pink-400/70 to-orange-400/70'
+          }`}
+          animate={{
+            scale: [1.2, 0.8, 1.4, 0.9, 1.2],
+            rotate: [360, 270, 180, 90, 0],
+            x: [15, -25, 20, -15, 15],
+            y: [20, -15, 25, -20, 20]
+          }}
+          transition={{
+            duration: 10,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+        
+        <motion.div
+          className={`absolute top-1/3 right-1/4 w-80 h-80 rounded-full opacity-40 blur-3xl ${
+            darkMode ? 'bg-gradient-to-r from-cyan-600 to-blue-600' : 'bg-gradient-to-r from-indigo-400/60 to-pink-400/60'
+          }`}
+          animate={{
+            x: [-30, 40, -25, 35, -30],
+            y: [-25, 35, -30, 25, -25],
+            scale: [1, 1.2, 0.9, 1.3, 1],
+            rotate: [0, 180, 360]
+          }}
+          transition={{
+            duration: 12,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+        
+        {/* More floating particles with faster motion */}
+        {[...Array(12)].map((_, i) => (
+          <motion.div
+            key={i}
+            className={`absolute w-3 h-3 rounded-full ${
+              darkMode ? 'bg-white/30' : 'bg-gradient-to-r from-purple-400/50 to-pink-400/50'
+            }`}
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+            }}
+            animate={{
+              y: [-30, 40, -35, 30, -30],
+              x: [-20, 30, -25, 20, -20],
+              opacity: [0.2, 0.9, 0.3, 0.8, 0.2],
+              scale: [0.5, 1.2, 0.7, 1, 0.5]
+            }}
+            transition={{
+              duration: 2 + Math.random() * 3,
+              repeat: Infinity,
+              delay: Math.random() * 2,
+              ease: "easeInOut"
+            }}
+          />
+        ))}
+      </div>
 
-async function pingBackend() {
-  try {
-    await fetch(BACKEND_URL);
-    console.log('Backend pinged.');
-  } catch (err) {
-    console.error('Backend ping failed:', err);
-  }
-}
-
-// On load
-pingBackend();
-
-// Every 14 min (14 * 60 * 1000 ms)
-setInterval(pingBackend, 14 * 60 * 1000);
-return (
-    <div className={`min-h-screen transition-colors duration-500 ${darkMode ? 'bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460]' : 'bg-gradient-to-br from-blue-50 via-white to-purple-50'}`}>
-      {/* Header */}
-      <header className={`backdrop-blur-lg shadow-lg border-b ${darkMode ? 'bg-[#0f3460]/80 border-[#1a1a2e]' : 'bg-white/80 border-blue-100'}`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className={`p-2 rounded-lg shadow-lg ${darkMode ? 'bg-gradient-to-r from-pink-600 to-yellow-400' : 'bg-gradient-to-r from-blue-600 to-purple-600'}`}>
-                <Home className="h-6 w-6 text-white" />
-              </div>
-              <h1 className={`text-3xl font-extrabold bg-gradient-to-r ${darkMode ? 'from-pink-400 via-yellow-400 to-purple-400' : 'from-blue-600 to-purple-600'} bg-clip-text text-transparent drop-shadow`}>
-                PostureGuard AI
-              </h1>
-            </div>
-            <nav className="flex items-center space-x-6">
+      {/* Fullscreen Image Modal */}
+      <AnimatePresence>
+        {fullscreenImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm"
+            onClick={() => setFullscreenImage(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              className="relative max-w-7xl max-h-[90vh] p-4"
+              onClick={(e) => e.stopPropagation()}
+            >
               <button
-                className={`rounded-full p-2 transition-colors ${darkMode ? 'bg-[#16213e] hover:bg-[#1a1a2e]' : 'bg-gray-100 hover:bg-blue-100'}`}
+                onClick={() => setFullscreenImage(null)}
+                className="absolute -top-12 right-0 text-white hover:text-gray-300 transition-colors"
+              >
+                <X className="h-8 w-8" />
+              </button>
+              <img
+                src={fullscreenImage}
+                alt="Fullscreen view"
+                className="w-full h-full object-contain rounded-xl"
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Header with enhanced hover effects */}
+      <motion.header 
+        initial={{ opacity: 0, y: -50 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+        className={`relative backdrop-blur-xl border-b transition-all duration-300 ${
+          darkMode 
+            ? 'bg-slate-900/30 border-purple-500/20' 
+            : 'bg-white/40 border-purple-200/60 shadow-lg shadow-purple-100/20'
+        }`}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center justify-between">
+            <motion.div 
+              className="flex items-center space-x-4"
+              whileHover={{ scale: 1.02 }}
+              transition={{ duration: 0.2 }}
+            >
+              <motion.div 
+                className={`p-3 rounded-2xl shadow-lg backdrop-blur-md ${
+                  darkMode 
+                    ? 'bg-gradient-to-r from-purple-600 to-pink-600' 
+                    : 'bg-gradient-to-r from-blue-500 to-purple-500 shadow-purple-200/50'
+                }`}
+                whileHover={{ 
+                  rotate: [0, -10, 10, -5, 5, 0],
+                  scale: 1.1
+                }}
+                transition={{ duration: 0.6 }}
+              >
+                <img src={Logo} alt="Posture Guard Logo" className="h-10 w-10 text-white" />
+              </motion.div>
+              <div>
+                <motion.h1 
+                  className={`text-4xl font-bold bg-gradient-to-r bg-clip-text text-transparent ${
+                    darkMode 
+                      ? 'from-purple-400 via-pink-400 to-cyan-400' 
+                      : 'from-blue-600 via-purple-600 to-pink-600 drop-shadow-sm'
+                  }`}
+                  whileHover={{
+                    backgroundPosition: ['0% 50%', '100% 50%', '0% 50%']
+                  }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                >
+                  Posture Guard
+                </motion.h1>
+                <motion.p 
+                  className={`text-sm mt-1 ${
+                    darkMode ? 'text-purple-200' : 'text-purple-600/80 font-medium'
+                  }`}
+                  whileHover={{ scale: 1.05 }}
+                >
+                  Professional Posture Analysis
+                </motion.p>
+              </div>
+            </motion.div>
+            
+            <nav className="flex items-center space-x-4">
+              <motion.button
+                whileHover={{ 
+                  scale: 1.1,
+                  rotate: darkMode ? 180 : -180,
+                  boxShadow: darkMode ? '0 10px 25px rgba(168, 85, 247, 0.4)' : '0 10px 25px rgba(147, 51, 234, 0.3)'
+                }}
+                whileTap={{ scale: 0.9 }}
+                className={`p-3 rounded-xl backdrop-blur-md transition-all ${
+                  darkMode 
+                    ? 'bg-slate-800/50 hover:bg-slate-700/60 text-purple-300' 
+                    : 'bg-white/60 hover:bg-purple-50/80 text-purple-600 shadow-lg shadow-purple-100/30'
+                }`}
                 onClick={() => setDarkMode(d => !d)}
                 title="Toggle dark mode"
               >
-                <span className="sr-only">Toggle dark mode</span>
-                <svg className="h-6 w-6 text-yellow-400 dark:text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <AnimatePresence mode="wait">
                   {darkMode ? (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m8.66-13.66l-.71.71M4.05 19.95l-.71.71M21 12h-1M4 12H3m16.95 7.05l-.71-.71M4.05 4.05l-.71-.71M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                    <motion.div
+                      key="sun"
+                      initial={{ rotate: -180, opacity: 0 }}
+                      animate={{ rotate: 0, opacity: 1 }}
+                      exit={{ rotate: 180, opacity: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <Sun className="h-6 w-6" />
+                    </motion.div>
                   ) : (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12.79A9 9 0 1111.21 3a7 7 0 109.79 9.79z" />
+                    <motion.div
+                      key="moon"
+                      initial={{ rotate: 180, opacity: 0 }}
+                      animate={{ rotate: 0, opacity: 1 }}
+                      exit={{ rotate: -180, opacity: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <Moon className="h-6 w-6" />
+                    </motion.div>
                   )}
-                </svg>
-              </button>
-              <button className={`text-gray-600 dark:text-gray-300 hover:text-pink-500 transition-colors`}>
-                <Info className="h-5 w-5" />
-              </button>
+                </AnimatePresence>
+              </motion.button>
+              
+              <motion.button 
+                whileHover={{ 
+                  scale: 1.1,
+                  rotate: [0, -5, 5, 0],
+                  boxShadow: darkMode ? '0 10px 25px rgba(168, 85, 247, 0.4)' : '0 10px 25px rgba(147, 51, 234, 0.3)'
+                }}
+                whileTap={{ scale: 0.9 }}
+                className={`p-3 rounded-xl backdrop-blur-md transition-all ${
+                  darkMode 
+                    ? 'bg-slate-800/50 hover:bg-slate-700/60 text-purple-300' 
+                    : 'bg-white/60 hover:bg-purple-50/80 text-purple-600 shadow-lg shadow-purple-100/30'
+                }`}
+              >
+                <Info className="h-6 w-6" />
+              </motion.button>
             </nav>
           </div>
         </div>
-      </header>
+      </motion.header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+      <motion.div 
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
           {/* Upload Section */}
-          <div className="lg:col-span-2">
-            <div className={`rounded-3xl shadow-2xl border-4 ${darkMode ? 'bg-[#16213e]/80 border-pink-400' : 'bg-white/80 border-blue-200'} p-10`}>
-              <h2 className={`text-3xl font-extrabold mb-8 ${darkMode ? 'text-yellow-300' : 'text-purple-700'}`}>Upload Video/Image or Use Webcam</h2>
+          <motion.div 
+            className="xl:col-span-2"
+            variants={cardVariants}
+          >
+            <motion.div 
+              className={`rounded-3xl backdrop-blur-xl border shadow-2xl p-8 transition-all duration-300 ${
+                darkMode 
+                  ? 'bg-slate-900/40 border-purple-500/30' 
+                  : 'bg-white/50 border-purple-200/60 shadow-purple-100/20'
+              }`}
+              whileHover={{ 
+                boxShadow: darkMode 
+                  ? '0 25px 50px rgba(168, 85, 247, 0.2)' 
+                  : '0 25px 50px rgba(147, 51, 234, 0.15)',
+                y: -5
+              }}
+            >
+              <motion.h2 
+                variants={itemVariants}
+                className={`text-3xl font-bold mb-8 ${
+                  darkMode ? 'text-purple-100' : 'text-slate-800'
+                }`}
+                whileHover={{ scale: 1.02 }}
+              >
+                <motion.div
+                  whileHover={{ rotate: [0, -10, 10, 0] }}
+                  className="inline-block"
+                >
+                  <Sparkles className="inline-block mr-3 h-8 w-8 text-purple-500" />
+                </motion.div>
+                Upload & Analyze
+              </motion.h2>
               
-              {/* Posture Type Selection */}
-              <div className="mb-8">
-                <label className={`block text-lg font-bold mb-4 ${darkMode ? 'text-pink-300' : 'text-blue-700'}`}>
-                  Select Posture Type
-                </label>
-                <div className="flex space-x-6">
-                  <button
-                    onClick={() => setPostureType('squat')}
-                    className={`px-6 py-3 rounded-xl font-bold text-lg shadow-lg transition-all duration-300 ${
-                      postureType === 'squat'
-                        ? 'bg-gradient-to-r from-pink-500 to-yellow-400 text-white scale-105'
-                        : 'bg-gray-200 dark:bg-[#1a1a2e] text-gray-700 dark:text-gray-200 hover:bg-pink-100 dark:hover:bg-pink-900'
-                    }`}
-                  >
-                    Squat Analysis
-                  </button>
-                  <button
-                    onClick={() => setPostureType('sitting')}
-                    className={`px-6 py-3 rounded-xl font-bold text-lg shadow-lg transition-all duration-300 ${
-                      postureType === 'sitting'
-                        ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white scale-105'
-                        : 'bg-gray-200 dark:bg-[#1a1a2e] text-gray-700 dark:text-gray-200 hover:bg-blue-100 dark:hover:bg-blue-900'
-                    }`}
-                  >
-                    Sitting Analysis
-                  </button>
+              {/* Posture Type Selection with better icons */}
+              <motion.div variants={itemVariants} className="mb-8">
+                <motion.label 
+                  className={`block text-lg font-semibold mb-4 ${
+                    darkMode ? 'text-purple-200' : 'text-slate-700'
+                  }`}
+                  whileHover={{ scale: 1.02 }}
+                >
+                  <Target className="inline-block mr-2 h-5 w-5" />
+                  Select Analysis Type
+                </motion.label>
+                <div className="flex flex-wrap gap-4">
+                  {[
+                    { type: 'squat', icon: Dumbbell, label: 'Squat Form', color: 'from-orange-500 to-red-500' },
+                    { type: 'sitting', icon: Monitor, label: 'Sitting Posture', color: 'from-blue-500 to-cyan-500' }
+                  ].map(({ type, icon: Icon, label, color }) => (
+                    <motion.button
+                      key={type}
+                      onClick={() => setPostureType(type as 'squat' | 'sitting')}
+                      className={`relative px-6 py-4 rounded-2xl font-semibold text-lg transition-all duration-300 backdrop-blur-md ${
+                        postureType === type
+                          ? `bg-gradient-to-r ${color} text-white shadow-lg scale-105`
+                          : darkMode
+                            ? 'bg-slate-800/50 text-slate-200 hover:bg-slate-700/60'
+                            : 'bg-white/60 text-slate-700 hover:bg-purple-50/80 shadow-lg shadow-purple-100/20'
+                      }`}
+                      whileHover={{ 
+                        scale: postureType === type ? 1.05 : 1.02,
+                        boxShadow: postureType === type 
+                          ? `0 15px 30px ${type === 'squat' ? 'rgba(249, 115, 22, 0.4)' : 'rgba(6, 182, 212, 0.4)'}` 
+                          : undefined
+                      }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <motion.div
+                        whileHover={{ rotate: [0, -5, 5, 0] }}
+                        className="inline-block"
+                      >
+                        <Icon className="inline-block mr-2 h-5 w-5" />
+                      </motion.div>
+                      {label}
+                      {postureType === type && (
+                        <motion.div
+                          className="absolute inset-0 rounded-2xl border-2 border-white/30"
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ duration: 0.3 }}
+                        />
+                      )}
+                    </motion.button>
+                  ))}
                 </div>
-              </div>
+                
+                {/* Important Areas Information */}
+                <motion.div 
+                  className={`mt-4 p-4 rounded-2xl backdrop-blur-md border ${
+                    darkMode 
+                      ? 'bg-indigo-900/30 border-indigo-400/30' 
+                      : 'bg-indigo-50/80 border-indigo-200/60 shadow-lg shadow-indigo-100/30'
+                  }`}
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  whileHover={{ scale: 1.01 }}
+                >
+                  <p className={`font-semibold mb-2 ${
+                    darkMode ? 'text-indigo-200' : 'text-indigo-800'
+                  }`}>
+                    <Users className="inline-block mr-2 h-5 w-5" />
+                    Key Areas for {postureType === 'squat' ? 'Squat' : 'Sitting'} Analysis:
+                  </p>
+                  <p className={`text-sm ${
+                    darkMode ? 'text-indigo-100' : 'text-indigo-700'
+                  }`}>
+                    {postureType === 'squat' 
+                      ? 'Hip • Knee • Ankle • Toe • Shoulder alignment'
+                      : 'Ear • Shoulder • Hip • Knee alignment'
+                    }
+                  </p>
+                </motion.div>
+              </motion.div>
 
-              {/* File Upload Area */}
-              <div
+              {/* File Upload Area with dotted border */}
+              <motion.div
+                variants={itemVariants}
                 onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
-                className={`border-4 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all duration-300 ${
-                  darkMode
-                    ? 'border-yellow-400 bg-gradient-to-br from-[#1a1a2e]/80 via-[#16213e]/80 to-[#0f3460]/80 hover:border-pink-400'
-                    : 'border-blue-400 bg-gradient-to-br from-blue-100/80 via-white/80 to-purple-100/80 hover:border-purple-400'
+                className={`relative border-3 border-dashed rounded-3xl p-12 text-center cursor-pointer transition-all duration-300 ${
+                  dragActive
+                    ? darkMode
+                      ? 'border-purple-400 bg-purple-900/20 scale-105 shadow-2xl shadow-purple-400/30'
+                      : 'border-purple-400 bg-purple-50/80 scale-105 shadow-2xl shadow-purple-200/50'
+                    : darkMode
+                      ? 'border-purple-500/50 bg-slate-800/30 hover:border-purple-400/70 hover:bg-slate-700/30'
+                      : 'border-purple-300/60 bg-white/40 hover:border-purple-400/80 hover:bg-purple-50/60 shadow-lg shadow-purple-100/30'
                 }`}
                 onClick={() => fileInputRef.current?.click()}
+                whileHover={{ 
+                  scale: 1.02,
+                  boxShadow: darkMode 
+                    ? '0 20px 40px rgba(168, 85, 247, 0.2)' 
+                    : '0 20px 40px rgba(147, 51, 234, 0.15)'
+                }}
+                whileTap={{ scale: 0.98 }}
               >
-                <Upload className={`h-16 w-16 mx-auto mb-4 ${darkMode ? 'text-yellow-400' : 'text-blue-500'}`} />
-                <p className={`text-xl font-bold mb-2 ${darkMode ? 'text-yellow-200' : 'text-gray-700'}`}>
-                  {selectedFile ? selectedFile.name : 'Drop your video or image here or click to browse'}
-                </p>
-                <p className={`text-md ${darkMode ? 'text-pink-200' : 'text-gray-500'}`}>
-                  Supports MP4, AVI, MOV, JPG, PNG formats
-                </p>
+                <motion.div
+                  animate={dragActive ? { scale: 1.1 } : { scale: 1 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <motion.div
+                    whileHover={{ 
+                      rotate: [0, -10, 10, -5, 5, 0],
+                      scale: 1.1
+                    }}
+                    className="inline-block mb-6"
+                  >
+                    <Upload className={`h-20 w-20 mx-auto ${
+                      darkMode ? 'text-purple-400' : 'text-purple-500'
+                    }`} />
+                  </motion.div>
+                  <motion.p 
+                    className={`text-2xl font-bold mb-3 ${
+                      darkMode ? 'text-purple-100' : 'text-slate-800'
+                    }`}
+                    whileHover={{ scale: 1.05 }}
+                  >
+                    {selectedFile ? selectedFile.name : 'Drop your file here or click to browse'}
+                  </motion.p>
+                  <motion.p 
+                    className={`text-lg ${
+                      darkMode ? 'text-purple-200' : 'text-slate-600'
+                    }`}
+                    whileHover={{ scale: 1.02 }}
+                  >
+                    Supports MP4, AVI, MOV, JPG, PNG formats
+                  </motion.p>
+                </motion.div>
+                
+                {dragActive && (
+                  <motion.div
+                    className="absolute inset-0 rounded-3xl bg-gradient-to-r from-purple-500/20 to-pink-500/20"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.2 }}
+                  />
+                )}
+                
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -373,272 +688,663 @@ return (
                   onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
                   className="hidden"
                 />
-              </div>
+              </motion.div>
 
               {/* File Preview */}
-              {previewUrl && (
-                <div className="mt-8">
-                  <h3 className={`text-xl font-bold mb-3 ${darkMode ? 'text-yellow-200' : 'text-gray-800'}`}>Preview</h3>
-                  <div className={`rounded-2xl overflow-hidden border-4 ${darkMode ? 'border-pink-400' : 'border-blue-200'} bg-black`}>
-                    {fileType === 'video' ? (
-                      <video
-                        src={previewUrl}
-                        controls
-                        className="w-full max-h-72 object-contain"
-                      />
-                    ) : (
-                      <img
-                        src={previewUrl}
-                        alt="Preview"
-                        className="w-full max-h-72 object-contain"
-                      />
-                    )}
-                  </div>
-                </div>
-              )}
+              <AnimatePresence>
+                {previewUrl && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.4 }}
+                    className="mt-8"
+                  >
+                    <motion.h3 
+                      className={`text-xl font-semibold mb-4 ${
+                        darkMode ? 'text-purple-200' : 'text-slate-800'
+                      }`}
+                      whileHover={{ scale: 1.02 }}
+                    >
+                      <Eye className="inline-block mr-2 h-5 w-5" />
+                      Preview
+                    </motion.h3>
+                    <motion.div 
+                      className={`rounded-3xl overflow-hidden border-2 backdrop-blur-md relative ${
+                        darkMode ? 'border-purple-400/50' : 'border-purple-300/60 shadow-lg shadow-purple-100/30'
+                      }`}
+                      whileHover={{ 
+                        scale: 1.02,
+                        boxShadow: darkMode 
+                          ? '0 20px 40px rgba(168, 85, 247, 0.3)' 
+                          : '0 20px 40px rgba(147, 51, 234, 0.2)'
+                      }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      {fileType === 'video' ? (
+                        <video
+                          src={previewUrl}
+                          controls
+                          className="w-full max-h-100 object-cover"
+                        />
+                      ) : (
+                        <div className="relative">
+                          <img
+                            src={previewUrl}
+                            alt="Preview"
+                            className="w-full max-h-100 object-cover"
+                          />
+                          <motion.button
+                            onClick={() => setFullscreenImage(previewUrl)}
+                            className={`absolute top-4 right-4 p-2 rounded-full backdrop-blur-md transition-all ${
+                              darkMode 
+                                ? 'bg-slate-900/60 hover:bg-slate-800/80 text-white' 
+                                : 'bg-white/60 hover:bg-white/90 text-slate-700'
+                            }`}
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            title="View fullscreen"
+                          >
+                            <Maximize2 className="h-5 w-5" />
+                          </motion.button>
+                        </div>
+                      )}
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
-              {/* Webcam Section */}
-              <div className="mt-10">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className={`text-xl font-bold ${darkMode ? 'text-yellow-200' : 'text-gray-800'}`}>Live Webcam</h3>
-                  <div className="flex space-x-3">
+              <motion.p 
+                className={`text-sm mt-3 transition-colors text-center ${
+                  darkMode ? 'text-purple-300/70 hover:text-purple-300' : 'text-purple-600/80 font-medium hover:text-purple-700'
+                }`}
+                whileHover={{ scale: 1.02 }}
+              >
+                💡 Tip: A clear side view yields the most accurate analysis
+              </motion.p>
+
+              {/* Webcam Section with better colors */}
+              <motion.div variants={itemVariants} className="mt-10">
+                <div className="flex items-center justify-between mb-6">
+                  <motion.h3 
+                    className={`text-xl font-semibold ${
+                      darkMode ? 'text-purple-200' : 'text-slate-800'
+                    }`}
+                    whileHover={{ scale: 1.02 }}
+                  >
+                    <Camera className="inline-block mr-2 h-5 w-5" />
+                    Live Webcam
+                  </motion.h3>
+                  <div className="flex gap-3">
                     {!isWebcamActive ? (
-                      <button
+                      <motion.button
                         onClick={startWebcam}
-                        className="bg-gradient-to-r from-green-400 to-blue-400 text-white px-5 py-2 rounded-xl font-bold shadow-lg hover:from-green-500 hover:to-blue-500 transition-all"
+                        className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-6 py-3 rounded-xl font-semibold shadow-lg backdrop-blur-md hover:shadow-emerald-300/50"
+                        variants={buttonVariants}
+                        whileHover={{
+                          scale: 1.05,
+                          boxShadow: '0 15px 30px rgba(16, 185, 129, 0.4)',
+                          backgroundPosition: ['0% 50%', '100% 50%', '0% 50%']
+                        }}
+                        whileTap="tap"
+                        transition={{ duration: 0.2 }}
                       >
                         <Camera className="h-5 w-5 inline-block mr-2" />
                         Start Webcam
-                      </button>
+                      </motion.button>
                     ) : (
                       <>
-                        <button
+                        <motion.button
                           onClick={captureFrame}
-                          className="bg-gradient-to-r from-pink-400 to-yellow-400 text-white px-5 py-2 rounded-xl font-bold shadow-lg hover:from-pink-500 hover:to-yellow-500 transition-all"
+                          className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-6 py-3 rounded-xl font-semibold shadow-lg backdrop-blur-md hover:shadow-blue-300/50"
+                          variants={buttonVariants}
+                          whileHover={{
+                            scale: 1.05,
+                            boxShadow: '0 15px 30px rgba(59, 130, 246, 0.4)',
+                            backgroundPosition: ['0% 50%', '100% 50%', '0% 50%']
+                          }}
+                          whileTap="tap"
+                          transition={{ duration: 0.2 }}
                         >
                           <Image className="h-5 w-5 inline-block mr-2" />
-                          Capture Frame
-                        </button>
-                        <button
+                          Capture
+                        </motion.button>
+                        <motion.button
                           onClick={stopWebcam}
-                          className="bg-gradient-to-r from-red-400 to-pink-400 text-white px-5 py-2 rounded-xl font-bold shadow-lg hover:from-red-500 hover:to-pink-500 transition-all"
+                          className="bg-gradient-to-r from-rose-500 to-pink-500 text-white px-6 py-3 rounded-xl font-semibold shadow-lg backdrop-blur-md hover:shadow-rose-300/50"
+                          variants={buttonVariants}
+                          whileHover={{
+                            scale: 1.05,
+                            boxShadow: '0 15px 30px rgba(244, 63, 94, 0.4)',
+                            backgroundPosition: ['0% 50%', '100% 50%', '0% 50%']
+                          }}
+                          whileTap="tap"
+                          transition={{ duration: 0.2 }}
                         >
                           Stop
-                        </button>
+                        </motion.button>
                       </>
                     )}
                   </div>
                 </div>
-                <div className={`rounded-2xl overflow-hidden border-4 ${darkMode ? 'border-yellow-400' : 'border-blue-200'} bg-black`}>
+                <motion.div 
+                  className={`rounded-3xl overflow-hidden border-2 backdrop-blur-md ${
+                    darkMode ? 'border-purple-400/50' : 'border-purple-300/60 shadow-lg shadow-purple-100/30'
+                  }`}
+                  whileHover={{ 
+                    scale: 1.01,
+                    boxShadow: darkMode 
+                      ? '0 20px 40px rgba(168, 85, 247, 0.3)' 
+                      : '0 20px 40px rgba(147, 51, 234, 0.2)'
+                  }}
+                  transition={{ duration: 0.3 }}
+                >
                   <video
                     ref={videoRef}
                     autoPlay
                     playsInline
                     muted
-                    className="w-full h-64 object-cover"
+                    className="w-full max-h-100 object-cover"
                     style={{ display: isWebcamActive ? 'block' : 'none' }}
                   />
                   {!isWebcamActive && (
-                    <div className="w-full h-64 flex items-center justify-center bg-gradient-to-br from-gray-800 via-gray-900 to-black">
+                    <div className={`w-full h-64 flex items-center justify-center ${
+                      darkMode 
+                        ? 'bg-gradient-to-br from-slate-800 via-slate-900 to-black'
+                        : 'bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50'
+                    }`}>
                       <div className="text-center">
-                        <Camera className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                        <p className="text-gray-400">Webcam not active</p>
+                        <motion.div
+                          animate={{ 
+                            scale: [1, 1.1, 1],
+                            rotate: [0, 5, -5, 0]
+                          }}
+                          transition={{ 
+                            duration: 3,
+                            repeat: Infinity,
+                            ease: "easeInOut"
+                          }}
+                        >
+                          <Camera className={`h-16 w-16 mx-auto mb-4 ${
+                            darkMode ? 'text-slate-500' : 'text-purple-400'
+                          }`} />
+                        </motion.div>
+                        <p className={`text-lg ${
+                          darkMode ? 'text-slate-400' : 'text-purple-500'
+                        }`}>Webcam inactive</p>
                       </div>
                     </div>
                   )}
-                </div>
+                </motion.div>
                 <canvas ref={canvasRef} className="hidden" />
-              </div>
+              </motion.div>
 
-              {/* Action Buttons */}
-              <div className="mt-10 flex space-x-6">
-                <button
+              {/* Enhanced Action Button */}
+              <motion.div variants={itemVariants} className="mt-10">
+                <motion.button
                   onClick={analyzePosture}
                   disabled={!selectedFile || isAnalyzing}
-                  className={`flex-1 bg-gradient-to-r from-pink-500 to-yellow-400 text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-lg hover:from-pink-600 hover:to-yellow-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-3`}
+                  className={`w-full py-6 px-8 rounded-2xl font-bold text-xl shadow-2xl transition-all duration-300 ${
+                    !selectedFile || isAnalyzing
+                      ? 'opacity-50 cursor-not-allowed bg-slate-400'
+                      : 'bg-gradient-to-r from-purple-600 via-pink-600 to-purple-600 text-white hover:from-purple-700 hover:via-pink-700 hover:to-purple-700'
+                  }`}
+                  whileHover={!selectedFile || isAnalyzing ? {} : {
+                    scale: 1.02,
+                    boxShadow: '0 25px 50px rgba(168, 85, 247, 0.5)',
+                    backgroundPosition: ['0% 50%', '100% 50%', '0% 50%']
+                  }}
+                  whileTap={!selectedFile || isAnalyzing ? {} : { scale: 0.98 }}
+                  transition={{ duration: 0.3 }}
                 >
-                  {isAnalyzing ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                      <span>Analyzing...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Play className="h-5 w-5" />
-                      <span>Analyze Posture</span>
-                    </>
-                  )}
-                </button>
-                
-                
-              </div>
-            </div>
-          </div>
+                  <AnimatePresence mode="wait">
+                    {isAnalyzing ? (
+                      <motion.div
+                        key="analyzing"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="flex items-center justify-center space-x-3"
+                      >
+                        <motion.div
+                          className="w-6 h-6 border-2 border-white border-t-transparent rounded-full"
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        />
+                        <span>Analyzing Posture...</span>
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="analyze"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="flex items-center justify-center space-x-3"
+                      >
+                        <motion.div
+                          whileHover={{ scale: 1.2, rotate: [0, -10, 10, 0] }}
+                          className="inline-block"
+                        >
+                          <Zap className="h-6 w-6" />
+                        </motion.div>
+                        <span>Analyze Posture</span>
+                        <ChevronRight className="h-5 w-5" />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.button>
+              </motion.div>
+            </motion.div>
+          </motion.div>
 
           {/* Feedback & Results Panel */}
-          <div className="lg:col-span-1">
-            <div className={`rounded-3xl shadow-2xl border-4 ${darkMode ? 'bg-[#16213e]/80 border-yellow-400' : 'bg-white/80 border-blue-200'} p-8`}>
-              <h2 className={`text-2xl font-extrabold mb-6 ${darkMode ? 'text-yellow-300' : 'text-purple-700'}`}>Analysis Feedback</h2>
+          <motion.div 
+            className="xl:col-span-1"
+            variants={cardVariants}
+          >
+            <motion.div 
+              className={`rounded-3xl backdrop-blur-xl border shadow-2xl p-8 transition-all duration-300 ${
+                darkMode 
+                  ? 'bg-slate-900/40 border-purple-500/30' 
+                  : 'bg-white/50 border-purple-200/60 shadow-purple-100/20'
+              }`}
+              whileHover={{ 
+                boxShadow: darkMode 
+                  ? '0 25px 50px rgba(168, 85, 247, 0.2)' 
+                  : '0 25px 50px rgba(147, 51, 234, 0.15)',
+                y: -5
+              }}
+            >
+              <motion.h2 
+                variants={itemVariants}
+                className={`text-2xl font-bold mb-6 ${
+                  darkMode ? 'text-purple-100' : 'text-slate-800'
+                }`}
+                whileHover={{ scale: 1.02 }}
+              >
+                <motion.div
+                  whileHover={{ rotate: [0, -10, 10, 0] }}
+                  className="inline-block"
+                >
+                  <BarChart3 className="inline-block mr-3 h-7 w-7 text-purple-500" />
+                </motion.div>
+                Analysis Results
+              </motion.h2>
               
-              {currentFeedback ? (
-                <div className="space-y-6">
-                  {/* Posture Status */}
-                  <div className={`p-5 rounded-2xl border-4 shadow-lg ${
-                    currentFeedback.isGoodPosture 
-                      ? (darkMode ? 'bg-green-900/60 border-green-400' : 'bg-green-50 border-green-200')
-                      : (darkMode ? 'bg-red-900/60 border-pink-400' : 'bg-red-50 border-red-200')
-                  }`}>
-                    <div className="flex items-center space-x-4">
-                      {currentFeedback.isGoodPosture ? (
-                        <CheckCircle className="h-7 w-7 text-green-400" />
-                      ) : (
-                        <AlertCircle className="h-7 w-7 text-pink-400" />
-                      )}
-                      <div>
-                        <p className={`font-extrabold text-lg ${
-                          currentFeedback.isGoodPosture ? (darkMode ? 'text-green-200' : 'text-green-800') : (darkMode ? 'text-pink-200' : 'text-red-800')
-                        }`}>
-                          {currentFeedback.isGoodPosture ? 'Good Posture!' : 'Poor Posture Detected'}
-                        </p>
-                        <p className={`text-md ${
-                          currentFeedback.isGoodPosture ? (darkMode ? 'text-green-100' : 'text-green-600') : (darkMode ? 'text-pink-100' : 'text-red-600')
-                        }`}>
-                          {currentFeedback.feedback}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Posture Type */}
-                  <div className={`rounded-xl p-3 shadow bg-gradient-to-r ${darkMode ? 'from-pink-900/60 to-yellow-900/60' : 'from-blue-50 to-purple-100'} border-2 ${darkMode ? 'border-yellow-400' : 'border-blue-200'}`}>
-                    <p className={`font-bold ${darkMode ? 'text-yellow-200' : 'text-blue-800'}`}>
-                      Analysis Type: {currentFeedback.postureType === 'squat' ? 'Squat Form' : 'Sitting Posture'}
-                    </p>
-                  </div>
-
-                  {/* Angle Measurements */}
-                  <div className="space-y-3">
-                    <h3 className={`font-bold ${darkMode ? 'text-yellow-200' : 'text-gray-800'}`}>Measurements</h3>
-                    {currentFeedback.angles.knee !== undefined && (
-                      <div className={`${darkMode ? 'text-yellow-200' : 'text-gray-800'} flex justify-between items-center rounded-xl px-4 py-2 shadow ${darkMode ? 'bg-[#1a1a2e]' : 'bg-gray-50'}`}>
-                        <span className={` text-md font-medium`}>Knee Angle:</span>
-                        <span className="font-bold">{currentFeedback.angles.knee}°</span>
-                      </div>
-                    )}
-                    {currentFeedback.angles.back !== undefined && (
-                      <div className={`${darkMode ? 'text-yellow-200' : 'text-gray-800'} flex justify-between items-center rounded-xl px-4 py-2 shadow ${darkMode ? 'bg-[#1a1a2e]' : 'bg-gray-50'}`}>
-                        <span className={` text-md font-medium`}>Back Angle:</span>
-                        <span className="font-bold">{currentFeedback.angles.back}°</span>
-                      </div>
-                    )}
-                    {currentFeedback.angles.neck !== undefined && (
-                      <div className={`${darkMode ? 'text-yellow-200' : 'text-gray-800'} flex justify-between items-center rounded-xl px-4 py-2 shadow ${darkMode ? 'bg-[#1a1a2e]' : 'bg-gray-50'}`}>
-                        <span className="text-md font-medium">Neck Position:</span>
-                        <span className="font-bold">{currentFeedback.angles.neck}°</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Warnings */}
-                  {currentFeedback.warnings.length > 0 && (
-                    <div className="space-y-2">
-                      <h3 className={`font-bold ${darkMode ? 'text-yellow-200' : 'text-gray-800'}`}>Recommendations</h3>
-                      <div className="space-y-2">
-                        {currentFeedback.warnings.map((warning, index) => (
-                          <div
-                            key={index}
-                            className={`flex items-start space-x-3 rounded-xl px-4 py-3 shadow-lg animate-pulse font-semibold ${
-                              darkMode
-                                ? 'bg-gradient-to-r from-yellow-700/80 via-pink-700/80 to-orange-700/80 text-yellow-100'
-                                : 'bg-gradient-to-r from-yellow-400/80 via-pink-300/80 to-orange-400/80 text-gray-900'
-                            }`}
+              <AnimatePresence mode="wait">
+                {currentFeedback ? (
+                  <motion.div
+                    key="feedback"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    className="space-y-6"
+                  >
+                    {/* Posture Status */}
+                    <motion.div 
+                      className={`p-6 rounded-2xl border-2 shadow-lg backdrop-blur-md ${
+                        currentFeedback.isGoodPosture 
+                          ? darkMode 
+                            ? 'bg-emerald-900/40 border-emerald-400/50' 
+                            : 'bg-emerald-50/90 border-emerald-300/60 shadow-emerald-100/50'
+                          : darkMode 
+                            ? 'bg-red-900/40 border-red-400/50' 
+                            : 'bg-red-50/90 border-red-300/60 shadow-red-100/50'
+                      }`}
+                      variants={pulseVariants}
+                      animate={currentFeedback.isGoodPosture ? {} : "pulse"}
+                      whileHover={{ scale: 1.02 }}
+                    >
+                      <div className="flex items-center space-x-4">
+                        {currentFeedback.isGoodPosture ? (
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
                           >
-                            <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0 drop-shadow" />
-                            <span>{warning}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <div className={`rounded-full p-5 w-20 h-20 mx-auto mb-4 shadow-lg ${darkMode ? 'bg-[#1a1a2e]' : 'bg-gray-100'}`}>
-                    <Camera className="h-10 w-10 text-gray-400 mx-auto" />
-                  </div>
-                  <p className={`mb-2 ${darkMode ? 'text-pink-200' : 'text-gray-500'}`}>
-                    Upload a video/image or capture from webcam
-                  </p>
-                  <p className={`text-sm ${darkMode ? 'text-yellow-200' : 'text-gray-400'}`}>
-                    Then click "Analyze Posture" to get feedback
-                  </p>
-                </div>
-              )}
-
-              {/* Results Panel */}
-              {analysisResult && (
-                <div className={`mt-8 rounded-2xl shadow-2xl border-4 ${darkMode ? 'bg-[#1a1a2e]/80 border-pink-400' : 'bg-white/80 border-blue-200'} p-6`}>
-                  <h3 className={`text-xl font-bold mb-4 ${darkMode ? 'text-yellow-200' : 'text-gray-800'}`}>Analysis Results</h3>
-                  
-                  {analysisResult.success ? (
-                    <div className="space-y-6">
-                      <div className={`rounded-xl p-4 shadow bg-gradient-to-r ${darkMode ? 'from-green-900/60 to-yellow-900/60' : 'from-green-50 to-yellow-100'} border-2 ${darkMode ? 'border-green-400' : 'border-green-200'}`}>
-                        <p className={`font-bold ${darkMode ? 'text-green-200' : 'text-green-800'}`}>✅ Analysis Complete!</p>
-                        <p className={`text-md ${darkMode ? 'text-green-100' : 'text-green-600'}`}>{analysisResult.message}</p>
-                      </div>
-                      
-                      {(analysisResult.processedVideoUrl || analysisResult.processedUrl) && (
-                        <div className="space-y-3">
-                          <p className={`font-bold ${darkMode ? 'text-yellow-200' : 'text-gray-800'}`}>Processed Result:</p>
-                          {fileType === 'video' ? (
-                            <iframe
-                              src={analysisResult.processedVideoUrl}
-                              allow="autoplay; fullscreen"
-                              width="100%"
-                              height="300"
-                              className="rounded-xl border-4 border-pink-400 shadow-lg"
-                              style={{ background: darkMode ? '#1a1a2e' : '#000' }}
-                            />
-                          ) : (
-                            <img
-                              src={analysisResult.processedUrl}
-                              alt="Processed result"
-                              className="w-full rounded-xl border-4 border-yellow-400 shadow-lg"
-                              style={{ background: darkMode ? '#1a1a2e' : '#fff' }}
-                            />
-                          )}
-                         
-                        </div>
-                      )}
-
-                      {/* Analysis Summary */}
-                      {analysisResult.analysis.length > 0 && (
-                        <div className={`rounded-xl p-4 shadow bg-gradient-to-r ${darkMode ? 'from-blue-900/60 to-purple-900/60' : 'from-blue-50 to-purple-100'} border-2 ${darkMode ? 'border-yellow-400' : 'border-blue-200'}`}>
-                          <p className={`font-bold mb-2 ${darkMode ? 'text-yellow-200' : 'text-blue-800'}`}>Analysis Summary:</p>
-                          <p className={`text-md ${darkMode ? 'text-yellow-100' : 'text-blue-700'}`}>
-                            Analyzed {analysisResult.analysis.length} frame(s) for {postureType} posture
+                            <CheckCircle className="h-8 w-8 text-emerald-500" />
+                          </motion.div>
+                        ) : (
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+                          >
+                            <AlertCircle className="h-8 w-8 text-red-500" />
+                          </motion.div>
+                        )}
+                        <div>
+                          <p className={`font-bold text-lg ${
+                            currentFeedback.isGoodPosture 
+                              ? darkMode ? 'text-emerald-200' : 'text-emerald-800'
+                              : darkMode ? 'text-red-200' : 'text-red-800'
+                          }`}>
+                            {currentFeedback.isGoodPosture ? 'Excellent Posture!' : 'Needs Improvement'}
                           </p>
-                          <p className={`text-md ${darkMode ? 'text-yellow-100' : 'text-blue-600'}`}>
-                            Overall assessment: {analysisResult.analysis[0]?.isGoodPosture ? 'Good form detected' : 'Areas for improvement identified'}
+                          <p className={`text-sm mt-1 ${
+                            currentFeedback.isGoodPosture 
+                              ? darkMode ? 'text-emerald-100' : 'text-emerald-600'
+                              : darkMode ? 'text-red-100' : 'text-red-600'
+                          }`}>
+                            {currentFeedback.feedback}
                           </p>
                         </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className={`rounded-xl p-4 shadow bg-gradient-to-r ${darkMode ? 'from-red-900/60 to-pink-900/60' : 'from-red-50 to-pink-100'} border-2 ${darkMode ? 'border-pink-400' : 'border-red-200'}`}>
-                      <p className={`font-bold ${darkMode ? 'text-pink-200' : 'text-red-800'}`}>❌ Analysis Failed</p>
-                      <p className={`text-md ${darkMode ? 'text-pink-100' : 'text-red-600'}`}>{analysisResult.message}</p>
-                      <p className={`text-xs mt-2 ${darkMode ? 'text-yellow-200' : 'text-red-500'}`}>
-                        Backend Error
+                      </div>
+                    </motion.div>
+
+                    {/* Analysis Type */}
+                    <motion.div 
+                      className={`rounded-2xl p-4 backdrop-blur-md border ${
+                        darkMode 
+                          ? 'bg-purple-900/30 border-purple-400/30' 
+                          : 'bg-purple-50/80 border-purple-200/60 shadow-lg shadow-purple-100/30'
+                      }`}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.3 }}
+                      whileHover={{ scale: 1.02 }}
+                    >
+                      <p className={`font-semibold ${
+                        darkMode ? 'text-purple-200' : 'text-purple-800'
+                      }`}>
+                        <Shield className="inline-block mr-2 h-5 w-5" />
+                        Analysis: {currentFeedback.postureType === 'squat' ? 'Squat Form' : 'Sitting Posture'}
                       </p>
+                    </motion.div>
+
+                    {/* Measurements */}
+                    <div className="space-y-3">
+                      <motion.h3 
+                        className={`font-semibold text-lg ${
+                          darkMode ? 'text-purple-200' : 'text-slate-800'
+                        }`}
+                        whileHover={{ scale: 1.02 }}
+                      >
+                        <TrendingUp className="inline-block mr-2 h-5 w-5" />
+                        Measurements
+                      </motion.h3>
+                      {Object.entries(currentFeedback.angles).map(([key, value], index) => 
+                        value !== undefined && (
+                          <motion.div
+                            key={key}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.4 + index * 0.1 }}
+                            className={`flex justify-between items-center rounded-xl px-4 py-3 backdrop-blur-md ${
+                              darkMode ? 'bg-slate-800/50' : 'bg-white/70 shadow-lg shadow-purple-100/20'
+                            }`}
+                            whileHover={{ 
+                              scale: 1.02,
+                              boxShadow: darkMode 
+                                ? '0 10px 25px rgba(148, 163, 184, 0.2)' 
+                                : '0 10px 25px rgba(147, 51, 234, 0.1)'
+                            }}
+                          >
+                            <span className={`font-medium capitalize ${
+                              darkMode ? 'text-slate-200' : 'text-slate-700'
+                            }`}>
+                              {key} Angle:
+                            </span>
+                            <motion.span 
+                              className="font-bold text-lg text-purple-500"
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              transition={{ delay: 0.5 + index * 0.1, type: "spring" }}
+                            >
+                              {value}°
+                            </motion.span>
+                          </motion.div>
+                        )
+                      )}
                     </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
+
+                    {/* Recommendations */}
+                    {currentFeedback.warnings.length > 0 && (
+                      <div className="space-y-3">
+                        <motion.h3 
+                          className={`font-semibold text-lg ${
+                            darkMode ? 'text-purple-200' : 'text-slate-800'
+                          }`}
+                          whileHover={{ scale: 1.02 }}
+                        >
+                          Recommendations
+                        </motion.h3>
+                        <div className="space-y-2">
+                          {currentFeedback.warnings.map((warning, index) => (
+                            <motion.div
+                              key={index}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: 0.6 + index * 0.1 }}
+                              className={`flex items-start space-x-3 rounded-xl px-4 py-3 backdrop-blur-md ${
+                                darkMode 
+                                  ? 'bg-gradient-to-r from-orange-900/40 to-yellow-900/40 border border-orange-400/30' 
+                                  : 'bg-gradient-to-r from-orange-100/80 to-yellow-100/80 border border-orange-200/60 shadow-lg shadow-orange-100/30'
+                              }`}
+                              whileHover={{ 
+                                scale: 1.02,
+                                boxShadow: darkMode 
+                                  ? '0 10px 25px rgba(251, 146, 60, 0.3)' 
+                                  : '0 10px 25px rgba(251, 146, 60, 0.2)'
+                              }}
+                            >
+                              <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0 text-orange-500" />
+                              <span className={`text-sm ${
+                                darkMode ? 'text-orange-100' : 'text-orange-800'
+                              }`}>
+                                {warning}
+                              </span>
+                            </motion.div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="empty"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="text-center py-12"
+                  >
+                    <motion.div 
+                      className={`rounded-full p-6 w-24 h-24 mx-auto mb-6 backdrop-blur-md ${
+                        darkMode ? 'bg-slate-800/50' : 'bg-white/70 shadow-lg shadow-purple-100/30'
+                      }`}
+                      animate={{ 
+                        rotate: [0, 10, -10, 0],
+                        scale: [1, 1.05, 1]
+                      }}
+                      transition={{ 
+                        duration: 4,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                      whileHover={{ scale: 1.1 }}
+                    >
+                      <Camera className={`h-12 w-12 mx-auto ${
+                        darkMode ? 'text-slate-400' : 'text-purple-400'
+                      }`} />
+                    </motion.div>
+                    <motion.p 
+                      className={`text-lg mb-2 ${
+                        darkMode ? 'text-purple-200' : 'text-slate-600'
+                      }`}
+                      whileHover={{ scale: 1.02 }}
+                    >
+                      Ready for Analysis
+                    </motion.p>
+                    <motion.p 
+                      className={`text-sm ${
+                        darkMode ? 'text-slate-400' : 'text-slate-500'
+                      }`}
+                      whileHover={{ scale: 1.02 }}
+                    >
+                      Upload a file or capture from webcam to begin
+                    </motion.p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Analysis Results */}
+              <AnimatePresence>
+                {analysisResult && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.4 }}
+                    className={`mt-8 rounded-2xl backdrop-blur-md border p-6 ${
+                      darkMode 
+                        ? 'bg-slate-800/40 border-slate-600/30' 
+                        : 'bg-white/70 border-purple-200/60 shadow-lg shadow-purple-100/30'
+                    }`}
+                  >
+                    <motion.h3 
+                      className={`text-lg font-semibold mb-4 ${
+                        darkMode ? 'text-purple-200' : 'text-slate-800'
+                      }`}
+                      whileHover={{ scale: 1.02 }}
+                    >
+                      Processing Results
+                    </motion.h3>
+                    
+                    {analysisResult.success ? (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="space-y-4"
+                      >
+                        <motion.div 
+                          className={`rounded-xl p-4 backdrop-blur-md ${
+                            darkMode 
+                              ? 'bg-emerald-900/30 border border-emerald-400/30' 
+                              : 'bg-emerald-50/90 border border-emerald-200/60 shadow-lg shadow-emerald-100/30'
+                          }`}
+                          whileHover={{ scale: 1.02 }}
+                        >
+                          <p className={`font-semibold ${
+                            darkMode ? 'text-emerald-200' : 'text-emerald-800'
+                          }`}>
+                            ✅ Analysis Complete!
+                          </p>
+                          <p className={`text-sm mt-1 ${
+                            darkMode ? 'text-emerald-100' : 'text-emerald-600'
+                          }`}>
+                            {analysisResult.message}
+                          </p>
+                        </motion.div>
+                        
+                        {(analysisResult.processedVideoUrl || analysisResult.processedUrl) && (
+                          <div className="space-y-3">
+                            <motion.p 
+                              className={`font-semibold ${
+                                darkMode ? 'text-purple-200' : 'text-slate-800'
+                              }`}
+                              whileHover={{ scale: 1.02 }}
+                            >
+                              Processed Result:
+                            </motion.p>
+                            <motion.div
+                              className={`rounded-xl overflow-hidden border-2 relative ${
+                                darkMode ? 'border-purple-400/50' : 'border-purple-400/60 shadow-lg shadow-purple-100/30'
+                              }`}
+                              whileHover={{ 
+                                scale: 1.02,
+                                boxShadow: darkMode 
+                                  ? '0 20px 40px rgba(168, 85, 247, 0.3)' 
+                                  : '0 20px 40px rgba(147, 51, 234, 0.2)'
+                              }}
+                              transition={{ duration: 0.3 }}
+                            >
+                              {fileType === 'video' ? (
+                                <iframe
+                                  src={analysisResult.processedVideoUrl}
+                                  allow="autoplay; fullscreen"
+                                  width="100%"
+                                  height="250"
+                                  className="bg-black"
+                                />
+                              ) : (
+                                <div className="relative">
+                                  <img
+                                    src={analysisResult.processedUrl}
+                                    alt="Processed result"
+                                    className="w-full object-cover"
+                                  />
+                                  <motion.button
+                                    onClick={() => setFullscreenImage(analysisResult.processedUrl!)}
+                                    className={`absolute top-4 right-4 p-2 rounded-full backdrop-blur-md transition-all ${
+                                      darkMode 
+                                        ? 'bg-slate-900/60 hover:bg-slate-800/80 text-white' 
+                                        : 'bg-white/60 hover:bg-white/90 text-slate-700'
+                                    }`}
+                                    whileHover={{ scale: 1.1 }}
+                                    whileTap={{ scale: 0.9 }}
+                                    title="View fullscreen"
+                                  >
+                                    <Maximize2 className="h-5 w-5" />
+                                  </motion.button>
+                                </div>
+                              )}
+                            </motion.div>
+                          </div>
+                        )}
+
+                        {analysisResult.analysis.length > 0 && (
+                          <motion.div 
+                            className={`rounded-xl p-4 backdrop-blur-md ${
+                              darkMode 
+                                ? 'bg-blue-900/30 border border-blue-400/30' 
+                                : 'bg-blue-50/90 border border-blue-200/60 shadow-lg shadow-blue-100/30'
+                            }`}
+                            whileHover={{ scale: 1.02 }}
+                          >
+                            <p className={`font-semibold mb-2 ${
+                              darkMode ? 'text-blue-200' : 'text-blue-800'
+                            }`}>
+                              Summary:
+                            </p>
+                            <p className={`text-sm ${
+                              darkMode ? 'text-blue-100' : 'text-blue-700'
+                            }`}>
+                              Analyzed {analysisResult.analysis.length} frame(s) • {' '}
+                              {analysisResult.analysis[0]?.isGoodPosture ? 'Good form detected' : 'Improvement areas identified'}
+                            </p>
+                          </motion.div>
+                        )}
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className={`rounded-xl p-4 backdrop-blur-md ${
+                          darkMode 
+                            ? 'bg-red-900/30 border border-red-400/30' 
+                            : 'bg-red-50/90 border border-red-200/60 shadow-lg shadow-red-100/30'
+                        }`}
+                        whileHover={{ scale: 1.02 }}
+                      >
+                        <p className={`font-semibold ${
+                          darkMode ? 'text-red-200' : 'text-red-800'
+                        }`}>
+                          ❌ Analysis Failed
+                        </p>
+                        <p className={`text-sm mt-1 ${
+                          darkMode ? 'text-red-100' : 'text-red-600'
+                        }`}>
+                          {analysisResult.message}
+                        </p>
+                      </motion.div>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          </motion.div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
