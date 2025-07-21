@@ -37,13 +37,14 @@ class PostureAnalyzer:
 
 
     def detect_facing_direction(self, landmarks):
-        left_shoulder = landmarks[self.mp_pose.PoseLandmark.LEFT_SHOULDER.value].visibility
-        right_shoulder = landmarks[self.mp_pose.PoseLandmark.RIGHT_SHOULDER.value].visibility
+        left_shoulder = landmarks[self.mp_pose.PoseLandmark.LEFT_SHOULDER.value].x
+        right_shoulder = landmarks[self.mp_pose.PoseLandmark.RIGHT_SHOULDER.value].x
+        nose = landmarks[self.mp_pose.PoseLandmark.NOSE.value].x
 
-        if left_shoulder > right_shoulder:
-            return "left"
-        else:
+        if nose > right_shoulder or nose > left_shoulder:
             return "right"
+        else:
+            return "left"
 
     def analyze_squat_posture(self, landmarks, facing):
         pose = self.mp_pose
@@ -82,11 +83,11 @@ class PostureAnalyzer:
             is_good_posture = False
 
         if not (30 <= back_angle <= 60):
-            warnings.append("Back angle too upright or too low - maintain natural forward lean")
+            warnings.append("Back angle too upright or too low - maintain natural forward lean (30° to 60° wrt thigh)")
             is_good_posture = False
 
         if not (80 <= knee_angle <= 120):
-            warnings.append("Squat depth needs improvement - aim for 90-degree knee bend")
+            warnings.append("Squat depth needs improvement - aim for 90-degree knee bend (80° to 120°)")
             is_good_posture = False
 
         feedback = "Good squat form" if is_good_posture else "Adjust your squat form"
@@ -96,7 +97,7 @@ class PostureAnalyzer:
             'feedback': feedback,
             'angles': {
                 'knee': round(knee_angle, 1),
-                'back': round(back_angle, 1)
+                'back': round(180-back_angle, 1)
             },
             'warnings': warnings
         }
@@ -129,12 +130,12 @@ class PostureAnalyzer:
         warnings = []
         is_good_posture = True
 
-        if neck_angle > 30:
-            warnings.append("Forward head posture - align ears over shoulders")
+        if neck_angle > 10:
+            warnings.append("Adjust head posture - align ears over shoulders (20° max)")
             is_good_posture = False
 
         if not (80 <= back_angle <= 115):
-            warnings.append("Back not straight - maintain neutral spine")
+            warnings.append("Back not straight - maintain neutral spine (80° to 115°)")
             is_good_posture = False
 
         feedback = "Good sitting posture" if is_good_posture else "Adjust your sitting position"
