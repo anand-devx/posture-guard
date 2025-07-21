@@ -19,7 +19,9 @@ const app = express();
 
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin:process.env.CORS_ORIGIN
+}));
 app.use(express.json());
 
 // Routes
@@ -45,5 +47,5 @@ app.use(errorHandler);
 // Start
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`🚀 PostureGuard AI Backend running...`);
+  console.log(`🚀 PostureGuard AI Backend running on PORT ${PORT}...`);
 });
