@@ -32,6 +32,22 @@ interface AnalysisResult {
 }
 
 function App() {
+
+  useEffect(() => {
+  const fetchData = () => {
+    fetch('https://posture-guard.onrender.com/');
+  };
+
+  // Call once immediately
+  fetchData();
+
+  // Set up interval for every 14 minutes
+  const interval = setInterval(fetchData, 14 * 60 * 1000);
+
+  // Clear interval on unmount
+  return () => clearInterval(interval);
+}, []);
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
