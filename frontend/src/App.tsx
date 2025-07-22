@@ -257,6 +257,28 @@ function App() {
     }
   };
 
+  // Timer state for webcam capture
+  const [captureTimer, setCaptureTimer] = React.useState<number | null>(null);
+  const [isCountingDown, setIsCountingDown] = React.useState(false);
+
+  // Timer logic for webcam capture
+  const startCaptureTimer = () => {
+    setIsCountingDown(true);
+    let timeLeft = 3; // 3 seconds countdown
+    setCaptureTimer(timeLeft);
+    const timerInterval = setInterval(() => {
+      timeLeft -= 1;
+      setCaptureTimer(timeLeft);
+      if (timeLeft <= 0) {
+        clearInterval(timerInterval);
+        setIsCountingDown(false);
+        setCaptureTimer(null);
+        captureFrame();
+      }
+    }, 1000);
+  };
+
+  // ...existing code...
   return (
     <div className="min-h-screen relative overflow-hidden">
       {/* Animated Background - Made more spontaneous and faster */}
@@ -803,7 +825,7 @@ function App() {
                     ) : (
                       <>
                         <motion.button
-                          onClick={captureFrame}
+                          onClick={startCaptureTimer}
                           className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-6 py-3 rounded-xl font-semibold shadow-lg backdrop-blur-md hover:shadow-blue-300/50"
                           variants={buttonVariants}
                           whileHover={{
@@ -813,9 +835,10 @@ function App() {
                           }}
                           whileTap="tap"
                           transition={{ duration: 0.2 }}
+                          disabled={isCountingDown}
                         >
                           <Image className="h-5 w-5 inline-block mr-2" />
-                          Capture
+                          {isCountingDown ? `Capturing in ${captureTimer}` : 'Capture'}
                         </motion.button>
                         <motion.button
                           onClick={stopWebcam}
@@ -846,14 +869,28 @@ function App() {
                   }}
                   transition={{ duration: 0.3 }}
                 >
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="w-full max-h-100 object-cover"
-                    style={{ display: isWebcamActive ? 'block' : 'none' }}
-                  />
+                  <div className="relative">
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full max-h-100 object-cover"
+                      style={{ display: isWebcamActive ? 'block' : 'none' }}
+                    />
+                    {isCountingDown && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        className="absolute inset-0 flex items-center justify-center z-10"
+                      >
+                        <span className="text-6xl font-bold text-white bg-black/60 px-8 py-4 rounded-2xl shadow-2xl">
+                          {captureTimer}
+                        </span>
+                      </motion.div>
+                    )}
+                  </div>
                   {!isWebcamActive && (
                     <div className={`w-full h-64 flex items-center justify-center ${darkMode
                       ? 'bg-gradient-to-br from-slate-800 via-slate-900 to-black'
