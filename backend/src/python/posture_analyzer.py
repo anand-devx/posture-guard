@@ -97,7 +97,7 @@ class PostureAnalyzer:
             'feedback': feedback,
             'angles': {
                 'knee': round(knee_angle, 1),
-                'back': round(180-back_angle, 1)
+                'back': round(back_angle, 1)
             },
             'warnings': warnings
         }
